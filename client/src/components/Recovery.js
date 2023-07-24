@@ -1,12 +1,54 @@
-import React from "react";
-import { Link } from "react-router-dom";
-import avatar from "../assets/profile.png";
+import React, { useEffect, useState } from "react";
 import styles from "../styles/Username.module.css";
-import { Toaster } from "react-hot-toast";
-import { passwordValidate } from "../helper/validate";
+import { Toaster, toast } from "react-hot-toast";
+import { useAuthStore } from "../store/store";
+import { generateOTP, verifyOTP } from "../helper/helper";
+import { useNavigate } from "react-router-dom";
 
 const Recovery = () => {
+  const { username } = useAuthStore((state) => state.auth);
+  const [OTP, setOTP] = useState("");
+  const navigate = useNavigate();
 
+  useEffect(() => {
+    generateOTP(username).then((OTP) => {
+      // console.log(OTP);
+      if (OTP) return toast.success("OTP sent to your email address.");
+      return toast.error("Could not send OTP.");
+    });
+  }, [username]);
+
+  const onSubmit = async (e) => {
+    e.preventDefault();
+
+    if (OTP.length !== 6) {
+      return toast.error("OTP must be 6 digit.");
+    }
+
+    try {
+      await verifyOTP({ username, code: OTP }).then((res) => {
+        if (res.status === 201) {
+          toast.success("OTP verified.");
+          return navigate("/reset");
+        }
+      });
+    } catch (error) {
+      return toast.error("OTP not verified.");
+    }
+  };
+
+  const onResend = async () => {
+    let sendPromise = generateOTP(username);
+    toast.promise(sendPromise, {
+      loading: "Sending...",
+      success: <b>OTP sent to your email address.</b>,
+      error: <b>Could not send OTP.</b>,
+    });
+
+    sendPromise.then((OTP) => {
+      // console.log(OTP);
+    });
+  };
 
   return (
     <div className="container mx-auto">
@@ -33,13 +75,15 @@ const Recovery = () => {
             </span>
           </div>
 
-          <form className="pt-20">
+          <form className="pt-20" onSubmit={onSubmit}>
             <div className="textbox flex flex-col items-center gap-6">
               <div className="input text-center">
                 <span className="py-4 text-sm text-left text-gray-500">
                   Enter 6 digit OTP sent to your email address.
                 </span>
                 <input
+                  onChange={(e) => setOTP(e.target.value)}
+                  value={OTP}
                   className={styles.textbox}
                   type="text"
                   placeholder="OTP"
@@ -53,7 +97,13 @@ const Recovery = () => {
             <div className="text-center py-4">
               <span className="text-gray-500">
                 Can't get OTP?{" "}
-                <button className="text-red-500">Resend OTP</button>
+                <button
+                  type="button"
+                  onClick={onResend}
+                  className="text-red-500"
+                >
+                  Resend OTP
+                </button>
               </span>
             </div>
           </form>

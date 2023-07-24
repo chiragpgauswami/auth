@@ -1,30 +1,44 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import {  useNavigate } from "react-router-dom";
 import avatar from "../assets/profile.png";
 import styles from "../styles/Username.module.css";
 import extend from "../styles/Profile.module.css";
-import { Toaster } from "react-hot-toast";
+import { Toaster, toast } from "react-hot-toast";
 import { useFormik } from "formik";
 import { profileValidate } from "../helper/validate";
 import { convertToBase64 } from "../helper/convert";
+import useFetch from "../hooks/fetch.hook";
+import { updateUser } from "../helper/helper";
 
 const Profile = () => {
+  
   const [file, setFile] = useState();
+  const [{ isLoading, apiData, serverError }] = useFetch();
+  const navigate = useNavigate();
 
   const formik = useFormik({
     initialValues: {
-      first_name: "",
-      last_name: "",
-      email: "",
-      phone_number: "",
-      address: "",
+      firstName: apiData?.firstName || "",
+      lastName: apiData?.lastName || "",
+      email: apiData?.email || "",
+      mobile: apiData?.mobile || "",
+      address: apiData?.address || "",
     },
+    enableReinitialize: true,
     validate: profileValidate,
     validateOnBlur: false,
     validateOnChange: false,
     onSubmit: async (values) => {
-      values = await Object.assign(values, { profile: file || "" });
-      console.log(values);
+      values = await Object.assign(values, {
+        profile: file || apiData?.profile || "",
+      });
+      let updatePromise = updateUser(values);
+
+      toast.promise(updatePromise, {
+        loading: "Updating...",
+        success: <b>Update Successfully...!</b>,
+        error: <b>Could not Update!</b>,
+      });
     },
   });
 
@@ -32,6 +46,15 @@ const Profile = () => {
     const base64 = await convertToBase64(e.target.files[0]);
     setFile(base64);
   };
+
+  function userLogout() {
+    localStorage.removeItem("token");
+    navigate("/");
+  }
+
+  if (isLoading) return <h1 className="text-2xl font-bold">Loading...</h1>;
+  if (serverError)
+    return <h1 className="text-xl text-red-500">{serverError.message}</h1>;
 
   return (
     <div className="container mx-auto">
@@ -70,9 +93,9 @@ const Profile = () => {
             <div className="profile flex justify-center py-4">
               <label htmlFor="profile">
                 <img
-                  src={file || avatar}
-                  alt="avatar"
+                  src={apiData?.profile || file || avatar}
                   className={`${styles.profile_img} ${extend.profile_img}`}
+                  alt="avatar"
                 />
               </label>
               <input
@@ -88,13 +111,13 @@ const Profile = () => {
                   className={`${styles.textbox} ${extend.textbox}`}
                   type="text"
                   placeholder="First Name"
-                  {...formik.getFieldProps("first_name")}
+                  {...formik.getFieldProps("firstName")}
                 />
                 <input
                   className={`${styles.textbox} ${extend.textbox}`}
                   type="text"
                   placeholder="Last Name"
-                  {...formik.getFieldProps("last_name")}
+                  {...formik.getFieldProps("lastName")}
                 />
               </div>
 
@@ -103,13 +126,13 @@ const Profile = () => {
                   className={`${styles.textbox} ${extend.textbox}`}
                   type="text"
                   placeholder="Phone Number"
-                  {...formik.getFieldProps("phone_number")}
+                  {...formik.getFieldProps("mobile")}
                 />
 
                 <input
                   className={`${styles.textbox} ${extend.textbox}`}
                   type="email"
-                  placeholder="Email"
+                  placeholder="Email*"
                   {...formik.getFieldProps("email")}
                 />
               </div>
@@ -129,9 +152,9 @@ const Profile = () => {
             <div className="text-center py-4">
               <span className="text-gray-500">
                 Come back later?{" "}
-                <Link className="text-red-500" to="/logout">
+                <button className="text-red-500" onClick={userLogout} to="/">
                   Logout
-                </Link>
+                </button>
               </span>
             </div>
           </form>
